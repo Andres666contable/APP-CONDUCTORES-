@@ -1,0 +1,6 @@
+{
+  "name": "Naciente S.A.S. - Guía de Conductores",
+  "description": "Directorio interactivo y mapa vial de establecimientos autorizados (EDS, restaurantes, hoteles y parqueaderos) para conductores de Naciente S.A.S.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
