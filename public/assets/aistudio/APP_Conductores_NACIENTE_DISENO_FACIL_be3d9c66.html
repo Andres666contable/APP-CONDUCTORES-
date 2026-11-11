@@ -587,7 +587,14 @@ let currentLegs = [];
 let SHEETS_URL = localStorage.getItem('naciente_sheets_url') || '';
 let categoryFilter = 'todas';
 let stopSearchQuery = '';
+const SUPABASE_URL = 'https://ysccoexskezjtjjivznc.supabase.co';
 
+const SUPABASE_KEY = 'sb_publishable_uJWDwSmY2WwQ702rKVVyFQ_dGnXGKib';
+
+const supabaseClient = supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
 const CATEGORY_ICONS = {combustible:'⛽', restaurante:'🍽️', hotel:'🛏️', otro:'🧾'};
 const CATEGORY_LABELS = {combustible:'Combustible', restaurante:'Restaurante', hotel:'Hotel', otro:'Otro'};
 
