@@ -88,6 +88,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
+  const [migrationLoading, setMigrationLoading] = useState(false);
+const [migrationMsg, setMigrationMsg] = useState('');
 
   const [activeTab, setActiveTab] = useState<'form' | 'list' | 'sync'>('form');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -172,6 +174,64 @@ const handleLogin = async (e: React.FormEvent) => {
   setAuthError('');
   setEmailInput('');
   setPasswordInput('');
+};
+
+  const handleMigrateStops = async () => {
+  setMigrationLoading(true);
+  setMigrationMsg('');
+
+  try {
+    const { data: existing, error: readError } = await supabase
+      .from('authorized_stops')
+      .select('id')
+      .limit(1);
+
+    if (readError) throw readError;
+
+    if (existing && existing.length > 0) {
+      setMigrationMsg(
+        'Supabase ya contiene paradas. No se realizó ninguna migración.'
+      );
+      return;
+    }
+
+    if (establishments.length === 0) {
+      setMigrationMsg('No hay paradas locales para migrar.');
+      return;
+    }
+
+    const rows = establishments.map((est) => ({
+      id: est.id,
+      nombre: est.nombre,
+      ciudad: est.ciudad,
+      direccion: est.direccion,
+      nit: est.nit,
+      estado: est.estado,
+      categoria: est.categoria,
+      lat: est.lat,
+      lng: est.lng,
+      foto: est.foto,
+      telefono: est.telefono ?? null,
+      observaciones: est.observaciones ?? null,
+      region: est.region,
+      corredor: est.corredor ?? null,
+    }));
+
+    const { error: insertError } = await supabase
+      .from('authorized_stops')
+      .insert(rows);
+
+    if (insertError) throw insertError;
+
+    setMigrationMsg(
+      `Migración completada: ${rows.length} paradas copiadas a Supabase.`
+    );
+  } catch (error) {
+    console.error('Error migrando paradas:', error);
+    setMigrationMsg('Error al migrar. No se modificaron las paradas locales.');
+  } finally {
+    setMigrationLoading(false);
+  }
 };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -902,6 +962,31 @@ const handleLogin = async (e: React.FormEvent) => {
               {/* TAB 3: GOOGLE SHEETS SYNC & PASSWORD */}
               {activeTab === 'sync' && (
                 <div className="space-y-6">
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
+  <h3 className="text-sm font-bold text-blue-900">
+    Migración de paradas a Supabase
+  </h3>
+
+  <p className="text-xs text-blue-800">
+    Copia las paradas actuales a la base de datos central para que estén
+    disponibles en todos los dispositivos.
+  </p>
+
+  <button
+    type="button"
+    onClick={handleMigrateStops}
+    disabled={migrationLoading}
+    className="w-full rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+  >
+    {migrationLoading ? 'Migrando paradas...' : 'Migrar paradas a Supabase'}
+  </button>
+
+  {migrationMsg && (
+    <p className="text-xs font-medium text-blue-900">
+      {migrationMsg}
+    </p>
+  )}
+</div>
                   <div className="space-y-3">
                     <h3 className="text-sm font-bold text-slate-900">
                       Sincronización con Google Sheets (Apps Script)
