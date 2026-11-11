@@ -76,6 +76,7 @@ export function App() {
     }
     return INITIAL_ESTABLECIMIENTOS;
   });
+   const [cloudLoaded, setCloudLoaded] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState<string>('TODAS');
@@ -101,14 +102,114 @@ export function App() {
   // Coordinate picking from map for Admin
   const [mapPickMode, setMapPickMode] = useState(false);
   const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
+  
+useEffect(() => {
+  if (!cloudLoaded) return;
 
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(establishments));
+  } catch {
+    // Ignore quota errors
+  }
+}, [establishments, cloudLoaded]);
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(establishments));
-    } catch {
-      // Ignore quota errors
+  let active = true;
+
+  const loadStops = async () => {
+    const { data, error } = await supabase
+      .from('authorized_stops')
+      .select('*');
+
+    if (error) {
+      console.error('Error cargando paradas:', error);
+      return;
     }
-  }, [establishments]);
+
+if (active) {
+  setCloudLoaded(true);
+
+  if (data && data.length > 0) {
+    const cloudStops: Establecimiento[] = data.map((row) => ({
+        id: row.id,
+        nombre: row.nombre,
+        ciudad: row.ciudad,
+        direccion: row.direccion,
+        nit: row.nit,
+        estado: row.estado,
+        categoria: row.categoria,
+        lat: Number(row.lat),
+        lng: Number(row.lng),
+        foto: row.foto ?? null,
+        telefono: row.telefono ?? undefined,
+        observaciones: row.observaciones ?? undefined,
+        region: row.region,
+        corredor: row.corredor ?? undefined,
+      }));
+
+      setEstablishments(cloudStops);
+    }
+  }
+};
+
+  loadStops();
+
+  const channel = supabase
+    .channel('authorized-stops-changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'authorized_stops',
+      },
+      (payload) => {
+        if (!active) return;
+
+        if (payload.eventType === 'DELETE') {
+          const deletedId = String(payload.old.id);
+          setEstablishments((prev) =>
+            prev.filter((item) => item.id !== deletedId)
+          );
+          return;
+        }
+
+        const row = payload.new as any;
+
+        const updatedStop: Establecimiento = {
+          id: row.id,
+          nombre: row.nombre,
+          ciudad: row.ciudad,
+          direccion: row.direccion,
+          nit: row.nit,
+          estado: row.estado,
+          categoria: row.categoria,
+          lat: Number(row.lat),
+          lng: Number(row.lng),
+          foto: row.foto ?? null,
+          telefono: row.telefono ?? undefined,
+          observaciones: row.observaciones ?? undefined,
+          region: row.region,
+          corredor: row.corredor ?? undefined,
+        };
+
+        setEstablishments((prev) => {
+          const exists = prev.some((item) => item.id === updatedStop.id);
+
+          return exists
+            ? prev.map((item) =>
+                item.id === updatedStop.id ? updatedStop : item
+              )
+            : [updatedStop, ...prev];
+        });
+      }
+    )
+    .subscribe();
+
+  return () => {
+    active = false;
+    supabase.removeChannel(channel);
+  };
+}, []);
 
   const syncFromSheets = useCallback(async (): Promise<{
     ok: boolean;
