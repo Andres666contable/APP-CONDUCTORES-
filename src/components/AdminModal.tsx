@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
+
 import {
   X,
   Lock,
@@ -83,6 +85,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onRequestMapPick,
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
 
@@ -115,7 +118,22 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   useEffect(() => {
     setLocalSheetsUrl(sheetsUrl);
   }, [sheetsUrl]);
+  
+useEffect(() => {
+  const checkAdminSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
 
+    if (
+      session?.user?.id === '4f10927c-9206-45fe-9fed-b3cff731f39e'
+    ) {
+      setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
+    }
+  };
+
+  checkAdminSession();
+}, []);
   useEffect(() => {
     if (pickedCoords) {
       setForm((prev) => ({
@@ -132,16 +150,29 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (simpleHash(passwordInput.trim()) === getStoredAdminHash()) {
-      setIsAuthenticated(true);
-      setAuthError('');
-      setPasswordInput('');
-    } else {
-      setAuthError('Contraseña incorrecta. Intenta nuevamente.');
-    }
-  };
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: emailInput.trim(),
+    password: passwordInput.trim(),
+  });
+
+  if (
+    error ||
+    !data.user ||
+    data.user.id !== '4f10927c-9206-45fe-9fed-b3cff731f39e'
+  ) {
+    await supabase.auth.signOut();
+    setAuthError('Acceso no autorizado. Verifica tus credenciales.');
+    return;
+  }
+
+  setIsAuthenticated(true);
+  setAuthError('');
+  setEmailInput('');
+  setPasswordInput('');
+};
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -330,28 +361,45 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </div>
             </div>
 
-            <div>
-              <label
-                htmlFor="admin-pass-input"
-                className="block text-xs font-semibold text-slate-700 mb-1.5"
-              >
-                Contraseña de acceso
-              </label>
-              <input
-                id="admin-pass-input"
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                placeholder="Ingresa la contraseña..."
-                autoFocus
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:border-sky-600"
-              />
-              {authError && (
-                <p className="text-xs text-red-600 font-medium mt-1.5">
-                  {authError}
-                </p>
-              )}
-            </div>
+          <div>
+  <label
+    htmlFor="admin-email-input"
+    className="block text-xs font-semibold text-slate-700 mb-1.5"
+  >
+    Correo electrónico
+  </label>
+  <input
+    id="admin-email-input"
+    type="email"
+    value={emailInput}
+    onChange={(e) => setEmailInput(e.target.value)}
+    placeholder="Ingresa tu correo electrónico..."
+    autoComplete="username"
+    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:border-sky-600 mb-3"
+  />
+
+  <label
+    htmlFor="admin-pass-input"
+    className="block text-xs font-semibold text-slate-700 mb-1.5"
+  >
+    Contraseña de acceso
+  </label>
+  <input
+    id="admin-pass-input"
+    type="password"
+    value={passwordInput}
+    onChange={(e) => setPasswordInput(e.target.value)}
+    placeholder="Ingresa la contraseña..."
+    autoComplete="current-password"
+    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:border-sky-600"
+  />
+
+  {authError && (
+    <p className="text-xs text-red-600 font-medium mt-1.5">
+      {authError}
+    </p>
+  )}
+</div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
