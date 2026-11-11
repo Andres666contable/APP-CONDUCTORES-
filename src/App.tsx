@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { supabase } from './supabaseClient';
+
 import {
   Search,
   Navigation,
