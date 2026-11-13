@@ -413,50 +413,95 @@ if (active) {
     }, 1800);
   };
 
-  const handleSaveEstablishment = async (
-    est: Establecimiento,
-    isEdit: boolean
-  ) => {
-    setEstablishments((prev) => {
-      if (isEdit) {
-        return prev.map((item) => (item.id === est.id ? est : item));
-      }
-      return [est, ...prev];
-    });
-    setSelectedEstId(est.id);
-
-    if (sheetsUrl) {
-      try {
-        await fetch(sheetsUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: isEdit ? 'updatePlace' : 'addPlace',
-            place: est,
-          }),
-        });
-      } catch {
-        // Saved locally even if sheet is offline
-      }
-    }
+ const handleSaveEstablishment = async (
+  est: Establecimiento,
+  isEdit: boolean
+) => {
+  const row = {
+    id: est.id,
+    nombre: est.nombre,
+    ciudad: est.ciudad,
+    direccion: est.direccion,
+    nit: est.nit,
+    estado: est.estado,
+    categoria: est.categoria,
+    lat: est.lat,
+    lng: est.lng,
+    foto: est.foto,
+    telefono: est.telefono ?? null,
+    observaciones: est.observaciones ?? null,
+    region: est.region,
+    corredor: est.corredor ?? null,
   };
 
-  const handleDeleteEstablishment = async (id: string) => {
-    setEstablishments((prev) => prev.filter((item) => item.id !== id));
-    if (selectedEstId === id) setSelectedEstId(null);
+  let error;
 
-    if (sheetsUrl) {
-      try {
-        await fetch(sheetsUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'deletePlace', placeId: id }),
-        });
-      } catch {
-        // Deleted locally
-      }
+  if (isEdit) {
+    const { error: updateError } = await supabase
+      .from('authorized_stops')
+      .update({
+        nombre: row.nombre,
+        ciudad: row.ciudad,
+        direccion: row.direccion,
+        nit: row.nit,
+        estado: row.estado,
+        categoria: row.categoria,
+        lat: row.lat,
+        lng: row.lng,
+        foto: row.foto,
+        telefono: row.telefono,
+        observaciones: row.observaciones,
+        region: row.region,
+        corredor: row.corredor,
+      })
+      .eq('id', est.id);
+
+    error = updateError;
+  } else {
+    const { error: insertError } = await supabase
+      .from('authorized_stops')
+      .insert(row);
+
+    error = insertError;
+  }
+
+  if (error) {
+    console.error('Error guardando parada en Supabase:', error);
+    alert('No se pudo guardar la parada en Supabase.');
+    return;
+  }
+
+  setEstablishments((prev) => {
+    if (isEdit) {
+      return prev.map((item) => (item.id === est.id ? est : item));
     }
-  };
+
+    return [est, ...prev];
+  });
+
+  setSelectedEstId(est.id);
+};
+
+ const handleDeleteEstablishment = async (id: string) => {
+  const { error } = await supabase
+    .from('authorized_stops')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error eliminando parada en Supabase:', error);
+    alert('No se pudo eliminar la parada.');
+    return;
+  }
+
+  setEstablishments((prev) =>
+    prev.filter((item) => item.id !== id)
+  );
+
+  if (selectedEstId === id) {
+    setSelectedEstId(null);
+  }
+};
 
   const handleResetDefaults = () => {
     setEstablishments(INITIAL_ESTABLECIMIENTOS);
